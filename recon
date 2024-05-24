@@ -1,0 +1,55 @@
+#!/bin/bash
+
+#Carpeta donde se guardarán todos los resultados
+carpeta_resultados="/root/programas/resultados-auto"
+mkdir -p "$carpeta_resultados"
+
+#Archivo con lista de dominios
+archivo_dominios="/root/tools/dominios-aut.txt"
+
+#Verificar si el archivo de dominios existe
+if [ ! -f "$archivo_dominios" ]; then
+    echo "El archivo $archivo_dominios no existe."
+    exit 1
+fi
+
+#Obtener la cantidad de registros en el archivo
+num_registros=$(wc -l < "$archivo_dominios")
+
+# Iterar sobre cada dominio en el archivo
+while IFS= read -r dominio || [[ -n "$dominio" ]]; do
+    carpeta_dominio="$carpeta_resultados/$dominio"
+    mkdir -p "$carpeta_dominio"
+    
+    # Ejecutar cada herramienta para buscar subdominios y guardar los resultados en archivos txt
+    amass_enum="$carpeta_dominio/amass_enum.txt"
+    amass_bruta="$carpeta_dominio/amass_bruta.txt"
+    shosubgo="$carpeta_dominio/shosubgo.txt"
+    subfinder="$carpeta_dominio/subfinder.txt"
+    sublist3r_normal="$carpeta_dominio/sublist3r_normal.txt"
+    sublist3r_bruta="$carpeta_dominio/sublist3r_bruta.txt"
+    subdomainizer="$carpeta_dominio/subdomainizer.txt"
+
+    echo "Amass enum para $dominio"
+    amass enum -d "$dominio" > "$amass_enum"
+    echo "Amass fuerza bruta para $dominio"
+    amass enum -d "$dominio" -brute > "$amass_bruta"
+    echo "Shobsugo para $dominio"
+    shosubgo -d "$dominio" -s 7DzeCRRWFwo2pv6RyqSSufw5aJK7sSVY > "$shosubgo"
+    echo "Subfinder para $dominio"
+    subfinder -d "$dominio" -all > "$subfinder"
+    echo "Sublist3r para $dominio"
+    python3 /root/tools/Sublist3r/sublist3r.py -d "$dominio" > "$sublist3r_normal"
+    echo "Sublist3r fuerza bruta para $dominio"
+    python3 /root/tools/Sublist3r/sublist3r.py -d "$dominio" -b > "$sublist3r_bruta"
+    echo "Subdomainizer para $dominio"
+    python3 /root/tools/SubDomainizer/SubDomainizer.py -d "$dominio" > "$subdomainizer"
+    
+    # Unificar todos los archivos de subdominios en uno solo y eliminar duplicados
+    unificado="$carpeta_dominio/unificado.txt"
+    cat "$amass_enum" "$amass_bruta" "$shosubgo" "$subfinder" "$sublist3r_normal" "$sublist3r_bruta" "$subdomainizer" | sort -u | uniq > "$unificado"
+
+    echo "Se han encontrado y unificado los subdominios en $unificado"
+done < "$archivo_dominios"
+
+echo "Se ha completado el proceso para $num_registros dominios."
